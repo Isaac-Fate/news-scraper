@@ -1,0 +1,15 @@
+title: News Scraper
+author: Isaac FEI
+logo: resources/news.jpg
+
+html:
+  favicon: resources/news.ico
+  use_issues_button: true
+  use_repository_button: true
+
+repository:
+  branch: master
+  url: https://github.com/Isaac-Fate/news-scraper
+
+execute:
+  execute_notebooks: auto

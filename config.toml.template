@@ -1,0 +1,6 @@
+openai-api-key = ""
+
+[mongodb]
+host = "localhost"
+port = 27017
+database-name = "news-scraper"

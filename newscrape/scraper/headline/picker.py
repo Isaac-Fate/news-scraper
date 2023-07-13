@@ -85,5 +85,3 @@ class NewsHeadlinePicker:
         
         return response
     
-    
-    

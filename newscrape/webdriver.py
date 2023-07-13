@@ -16,6 +16,12 @@ class WebDriver(webdriver.Chrome):
         
         self._service: Optional[Service] = None
     
+    def __str__(self) -> str:
+        return f'Chrome web driver on port: {self.port}'
+    
+    def __repr__(self):
+        return str(self)
+    
     @property
     def port(self) -> int:
         

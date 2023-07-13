@@ -5,29 +5,6 @@ from .picker import NewsHeadlinePicker
 
 HEADER_TAG_NAME_RE = re.compile(r'^h1$')
 
-def find_news_headline_from_search_result_tag(tag: Tag) -> Optional[str]:
-    
-    # the tag containing the headline
-    headline_tag = tag.find(
-        name='div',
-        attrs={
-            'role': 'heading'
-        }
-    )
-    if headline_tag is None: return None
-    
-    # extract the headline
-    headline = headline_tag.text
-    
-    # remove newline characters
-    headline = headline.strip().replace('\n', '')
-    
-    return headline
-
-def is_news_headline_truncated(headline: str) -> bool:
-    
-    return headline.endswith('...')
-
 def find_news_headline_from_news_post_html(
         html: str | bytes,
         picker: Optional[NewsHeadlinePicker] = None
@@ -64,8 +41,6 @@ def find_news_headline_from_news_post_html(
     return headline
     
 __all__ = [
-    'find_news_headline_from_search_result_tag',
-    'is_news_headline_truncated',
     'find_news_headline_from_news_post_html',
     'NewsHeadlinePicker'
 ]

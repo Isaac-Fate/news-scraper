@@ -1,8 +1,9 @@
 from typing import Self, Optional, Iterable
+from datetime import datetime, timedelta
 from pymongo import MongoClient
 from bson import ObjectId
-from .news import (
-    News,
+from .schema import News
+from .schema.news import (
     HEADLINE,
     LINK
 )
@@ -65,11 +66,14 @@ class NewsDBClient(MongoClient):
             }
         ) is not None
     
-    def find_all_news(self) -> list[News]:
+    def find_all_news(self, fields: list[str] = []) -> list[News]:
         
         return list(map(
             News.from_document,
-            self._news_collection.find()
+            self._news_collection.find(
+                filter={},
+                projection=fields
+            )
         ))
         
     def find_news_with_truncated_headlines(self) -> list[News]:
@@ -82,6 +86,43 @@ class NewsDBClient(MongoClient):
                 }
             )
         ))
+        
+    def find_news_inserted_within_date_time_range(
+            self,
+            date_time_start: datetime.now(),
+            date_time_end: datetime.now(),
+            fields: list[str] = []
+        ):
+        
+        return list(map(
+            News.from_document,
+            self._news_collection.find(
+                filter={
+                    '$expr': {
+                        '$and': [
+                            {'$gte': [{'$toDate': '$_id'}, date_time_start]},
+                            {'$lte': [{'$toDate': '$_id'}, date_time_end]}
+                        ]
+                    }
+                },
+                projection=fields
+            )
+        ))
+    
+    def find_news_inserted_in_past_n_hours(
+            self,
+            hours: int = 1,
+            fields: list[str] = []
+        ):
+        
+        # current data time
+        now = datetime.now()
+        
+        return self.find_news_inserted_within_date_time_range(
+            date_time_start=now - timedelta(hours=hours),
+            date_time_end=now,
+            fields=fields
+        )
     
     def find_all_news_links(self) -> list[str]:
         
@@ -109,7 +150,4 @@ class NewsDBClient(MongoClient):
                 }
             }
         )
-    
-    
-    
     

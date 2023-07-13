@@ -1,11 +1,17 @@
 from typing import Self, Optional
 from bson import ObjectId
 
-# keys of interest
+# fields of interest
 DATE = 'date'
 PUBLICATION = 'publication'
 HEADLINE = 'headline'
 LINK = 'link'
+FIELDS_OF_INTEREST = [
+    DATE,
+    PUBLICATION,
+    HEADLINE,
+    LINK
+]
 
 class News(dict):
     
