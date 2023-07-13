@@ -355,6 +355,7 @@ document.write(`
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#create-a-news-scraper">Create a News Scraper</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scrape-news">Scrape News</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fetch-documents-from-mongodb">Fetch Documents From MongoDB</a></li>
 </ul>
             </nav>
         </div>
@@ -370,10 +371,11 @@ document.write(`
 <h1>News Scraping<a class="headerlink" href="#news-scraping" title="Permalink to this headline">#</a></h1>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">timedelta</span>
-
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># add path to the system so that my package can be found</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;../../&#39;</span><span class="p">)</span>
+
+<span class="c1"># import my package</span>
 <span class="kn">from</span> <span class="nn">newscrape.config</span> <span class="kn">import</span> <span class="n">CONFIG</span><span class="p">;</span> <span class="n">CONFIG</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;../../config.toml&#39;</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">newscrape.db</span> <span class="kn">import</span> <span class="n">NewsDBClient</span>
 <span class="kn">from</span> <span class="nn">newscrape.webdriver</span> <span class="kn">import</span> <span class="n">WebDriver</span>
@@ -406,16 +408,18 @@ document.write(`
 <li><p><code class="docutils literal notranslate"><span class="pre">db_client</span></code>: A MongoDB client that handles the news documents in the database.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">web_driver</span></code>: A Chrome web driver running at the background. It will help us to access some websites when a simple GET request fails.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">headline_picker</span></code>: The news headline is usually wrapped into a <code class="docutils literal notranslate"><span class="pre">h1</span></code> HTML tag. The problem is that, in practice, some websites may have multiple <code class="docutils literal notranslate"><span class="pre">h1</span></code> tags, which may contain texts other than the headline. Hence, we need to pick the correct one. In order to complete this task automatically, the headline picker is powered by GPT.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">n_workers</span></code>: Maximum number of works in a thread pool. The pool executor will send request concurrently to save our time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_workers</span></code>: Maximum number of workers in a thread pool. The pool executor will send request concurrently to save our time.</p></li>
 </ul>
 </section>
 <section id="scrape-news">
 <h2>Scrape News<a class="headerlink" href="#scrape-news" title="Permalink to this headline">#</a></h2>
-<p>The goal is to scrape news in recent days.</p>
+<p>The goal is to scrape news in recent days, and then store them in MongoDB.</p>
 <p>Get the current date:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">today</span> <span class="o">=</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">timedelta</span>
+
+<span class="n">today</span> <span class="o">=</span> <span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">()</span>
 <span class="n">today</span>
 </pre></div>
 </div>
@@ -475,6 +479,202 @@ document.write(`
     <span class="n">date_end</span><span class="o">=</span><span class="n">today</span><span class="p">,</span>
     <span class="n">language</span><span class="o">=</span><span class="s1">&#39;zh&#39;</span>
 <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="fetch-documents-from-mongodb">
+<h2>Fetch Documents From MongoDB<a class="headerlink" href="#fetch-documents-from-mongodb" title="Permalink to this headline">#</a></h2>
+<p>Get the database client from the scraper instance:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">db_client</span> <span class="o">=</span> <span class="n">scraper</span><span class="o">.</span><span class="n">db_client</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>You may want to fetch all newly inserted news in the past several hours:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">newscrape.schema.news</span> <span class="kn">import</span> <span class="n">FIELDS_OF_INTEREST</span>
+
+<span class="n">news_list</span> <span class="o">=</span> <span class="n">db_client</span><span class="o">.</span><span class="n">find_news_inserted_in_past_n_hours</span><span class="p">(</span>
+    
+    <span class="c1"># newly inserted news in the past 12 hours</span>
+    <span class="n">hours</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    
+    <span class="c1"># only the following fields are of interest</span>
+    <span class="n">fields</span><span class="o">=</span><span class="n">FIELDS_OF_INTEREST</span>
+    
+<span class="p">)</span>
+
+<span class="n">news_list</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[{&#39;date&#39;: &#39;2023-07-11&#39;,
+  &#39;publication&#39;: &#39;Yahoo Finance&#39;,
+  &#39;headline&#39;: &#39;Asian Institutional Investors Look for Third Party Custody Solutions to Navigate Digital Asset Ecosystem, Find The PwC Aspen State of Digital Asset Custody Report&#39;,
+  &#39;link&#39;: &#39;https://finance.yahoo.com/news/asian-institutional-investors-look-third-123900424.html&#39;},
+ {&#39;date&#39;: &#39;2023-07-11&#39;,
+  &#39;publication&#39;: &#39;finews.asia&#39;,
+  &#39;headline&#39;: &#39;PwC: Better Custody Key to Institutional Crypto Adoption&#39;,
+  &#39;link&#39;: &#39;https://www.finews.asia/finance/39663-pwc-custody-key-to-institutional-crypto-adoption&#39;},
+ {&#39;date&#39;: &#39;2023-07-11&#39;,
+  &#39;publication&#39;: &#39;The Asset&#39;,
+  &#39;headline&#39;: &#39;Custody key to institutions picking digital assets&#39;,
+  &#39;link&#39;: &#39;https://www.theasset.com/article/49566/custody-key-to-institutions-picking-digital-assets&#39;},
+ {&#39;date&#39;: &#39;2023-07-11&#39;,
+  &#39;publication&#39;: &#39;Cointelegraph&#39;,
+  &#39;headline&#39;: &#39;Report: China to tighten rules around releasing generative AI tools&#39;,
+  &#39;link&#39;: &#39;https://cointelegraph.com/news/china-to-require-generative-ai-tools-to-obtain-license&#39;},
+ {&#39;date&#39;: &#39;2023-07-12&#39;,
+  &#39;publication&#39;: &#39;South China Morning Post&#39;,
+  &#39;headline&#39;: &#39;Hedge funds retreat from crypto after 2022 FTX scandal, PwC survey finds&#39;,
+  &#39;link&#39;: &#39;https://www.scmp.com/tech/tech-trends/article/3227451/hedge-funds-retreat-cryptocurrencies-after-2022-ftx-scandal-us-regulatory-crackdown-pwc-survey&#39;},
+ {&#39;date&#39;: &#39;2023-07-12&#39;,
+  &#39;publication&#39;: &#39;Cointelegraph&#39;,
+  &#39;headline&#39;: &#39;Google Play Store officially allows NFT games, but not gambling ones&#39;,
+  &#39;link&#39;: &#39;https://cointelegraph.com/news/google-play-store-officially-allows-nft-games-but-not-gambling&#39;},
+ {&#39;date&#39;: &#39;2023-07-11&#39;,
+  &#39;publication&#39;: &#39;Cointelegraph&#39;,
+  &#39;headline&#39;: &#39;Crypto custody market reached $448 billion in 2022: Report&#39;,
+  &#39;link&#39;: &#39;https://cointelegraph.com/news/crypto-report-the-crypto-custody-market-reached-448-billion-in-2022&#39;},
+ {&#39;date&#39;: &#39;2023-07-12&#39;,
+  &#39;publication&#39;: &#39;新浪财经&#39;,
+  &#39;headline&#39;: &#39;普华永道：82%高管寻求第三方托管加密资产愿意整合元宇宙&#39;,
+  &#39;link&#39;: &#39;https://finance.sina.com.cn/stock/hkstock/marketalerts/2023-07-12/doc-imzamnvv5551880.shtml&#39;},
+ {&#39;date&#39;: &#39;2023-07-11&#39;,
+  &#39;publication&#39;: &#39;英为财情&#39;,
+  &#39;headline&#39;: &#39;报告：数字资产行业已发展为价值1.2万亿美元市场&#39;,
+  &#39;link&#39;: &#39;https://cn.investing.com/news/stock-market-news/article-2219323&#39;},
+ {&#39;date&#39;: &#39;2023-07-12&#39;,
+  &#39;publication&#39;: &#39;股票&#39;,
+  &#39;headline&#39;: &#39;豪鹏科技: 世纪证券有限责任公司关于深圳市豪鹏科技股份有限公司向不特定对象发行可转换公司债券之上市保荐书（上会稿）&#39;,
+  &#39;link&#39;: &#39;https://stock.stockstar.com/notice/SN2023071300016626.shtml&#39;}]
+</pre></div>
+</div>
+</div>
+</div>
+<p>Convert the fetched news documents to a Pandas data frame:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">news_list</span><span class="p">)</span>
+<span class="n">df</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>date</th>
+      <th>publication</th>
+      <th>headline</th>
+      <th>link</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2023-07-11</td>
+      <td>Yahoo Finance</td>
+      <td>Asian Institutional Investors Look for Third P...</td>
+      <td>https://finance.yahoo.com/news/asian-instituti...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2023-07-11</td>
+      <td>finews.asia</td>
+      <td>PwC: Better Custody Key to Institutional Crypt...</td>
+      <td>https://www.finews.asia/finance/39663-pwc-cust...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2023-07-11</td>
+      <td>The Asset</td>
+      <td>Custody key to institutions picking digital as...</td>
+      <td>https://www.theasset.com/article/49566/custody...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2023-07-11</td>
+      <td>Cointelegraph</td>
+      <td>Report: China to tighten rules around releasin...</td>
+      <td>https://cointelegraph.com/news/china-to-requir...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2023-07-12</td>
+      <td>South China Morning Post</td>
+      <td>Hedge funds retreat from crypto after 2022 FTX...</td>
+      <td>https://www.scmp.com/tech/tech-trends/article/...</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2023-07-12</td>
+      <td>Cointelegraph</td>
+      <td>Google Play Store officially allows NFT games,...</td>
+      <td>https://cointelegraph.com/news/google-play-sto...</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2023-07-11</td>
+      <td>Cointelegraph</td>
+      <td>Crypto custody market reached $448 billion in ...</td>
+      <td>https://cointelegraph.com/news/crypto-report-t...</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2023-07-12</td>
+      <td>新浪财经</td>
+      <td>普华永道：82%高管寻求第三方托管加密资产愿意整合元宇宙</td>
+      <td>https://finance.sina.com.cn/stock/hkstock/mark...</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2023-07-11</td>
+      <td>英为财情</td>
+      <td>报告：数字资产行业已发展为价值1.2万亿美元市场</td>
+      <td>https://cn.investing.com/news/stock-market-new...</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>2023-07-12</td>
+      <td>股票</td>
+      <td>豪鹏科技: 世纪证券有限责任公司关于深圳市豪鹏科技股份有限公司向不特定对象发行可转换公司债券...</td>
+      <td>https://stock.stockstar.com/notice/SN202307130...</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<p>Finally, you want to write the above results into an Excel file:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># path to the output Execel file</span>
+<span class="n">excel_filepath</span> <span class="o">=</span> <span class="s1">&#39;../../out/news.xlsx&#39;</span>
+
+<span class="n">df</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">excel_filepath</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -542,6 +742,7 @@ document.write(`
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#create-a-news-scraper">Create a News Scraper</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scrape-news">Scrape News</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fetch-documents-from-mongodb">Fetch Documents From MongoDB</a></li>
 </ul>
   </nav></div>
 
